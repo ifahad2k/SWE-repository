@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only verified IUT users
+    function isVerifiedIUTUser() {
+      return request.auth != null && 
+             request.auth.token.email != null &&
+             request.auth.token.email.matches('.*@iut-dhaka\\.edu$') &&
+             request.auth.token.email_verified == true;
+    }
+
+    // Users collection — verified IUT users only
+    match /users/{userId} {
+      allow create, read, write: if isVerifiedIUTUser() && request.auth.uid == userId;
+    }
+
+    // Semesters collection — PUBLIC READ for anyone, WRITE only for verified IUT users
+    match /semesters/{semesterId} {
+      allow read: if true; // Anyone can read courses/materials
+      allow write: if isVerifiedIUTUser(); // Only verified users can write
+    }
+
+    // Activity log — verified IUT users only (no public access)
+    match /activity_log/{logId} {
+      allow read: if isVerifiedIUTUser();
+      allow create: if isVerifiedIUTUser();
+      allow update, delete: if false;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
